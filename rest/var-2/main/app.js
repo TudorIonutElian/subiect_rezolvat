@@ -7,6 +7,8 @@ const mysql = require('mysql2/promise')
 const DB_USERNAME = 'root'
 const DB_PASSWORD = ''
 
+let conn
+
 mysql.createConnection({
     user : DB_USERNAME,
     password : DB_PASSWORD
@@ -35,9 +37,16 @@ let Ship = sequelize.define('student', {
     timestamps : false
 })
 
-
 const app = express()
 app.use(bodyParser.json())
+
+let divideResponse = (arr, size) => {
+    var myArray = [];
+    for(var i = 0; i < arr.length; i += size) {
+      myArray.push(arr.slice(i, i+size));
+    }
+    return myArray;
+  }
 
 app.get('/create', async (req, res) => {
     try{
@@ -59,15 +68,45 @@ app.get('/create', async (req, res) => {
 })
 
 app.get('/ships', async (req, res) => {
-    let page = req.query.page
     let pageSize = req.query.pageSize
-    if(!page && !pageSize){
-        connection.query('SELECT * from students', function (err, rows, fields) {
-        if (err) throw err
-            console.log('The solution is: ', rows[0].solution)
-        })
-    }
+    let page = req.query.pageNo
 
+    sequelize.query("SELECT * FROM `students`", { type: sequelize.QueryTypes.SELECT})
+        .then(ships => {
+            let response = ships
+            // Daca nu e pagina si daca nu e nici size
+            if((!page && !pageSize)){
+                res.json(response)
+            }
+            // Daca e pagina dar nu e size
+            if(page !== undefined && pageSize === undefined){
+                let responseShips
+                let Page = parseInt(page)
+                responseShips = divideResponse(ships, 5)
+                if(responseShips[Page] === undefined){
+                    res.json([])
+                }else{
+                    res.send(responseShips[Page]);
+                }
+                
+            }
+            // Daca e si pagina si sieze
+            if(page !== undefined && pageSize !== undefined){
+                let responseShips
+                let Page = parseInt(page)
+                let PageSize = parseInt(pageSize)
+
+                if(isNaN(Page) && isNaN(PageSize)){
+                    res.json(response)
+                }else{
+                    responseShips = divideResponse(ships, PageSize)
+                    res.json(responseShips[Page]);
+                }
+                
+
+            }
+            // Daca pagina sau size sunt invalide
+        })
 })
 
 app.post('/ships', async (req, res) => {
